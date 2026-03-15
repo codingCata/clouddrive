@@ -811,6 +811,20 @@ a:hover {
     accent-color: var(--accent);
     margin-right: 12px;
     flex-shrink: 0;
+    display: none;
+}
+
+.batch-mode .item-checkbox {
+    display: block;
+}
+
+.batch-toggle-group {
+    display: flex;
+    gap: 8px;
+}
+
+.batch-toggle-group.hidden {
+    display: none;
 }
 
 .preview-content {
