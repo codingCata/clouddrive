@@ -639,11 +639,21 @@
         function updateBreadcrumb() {
             const breadcrumb = document.getElementById('breadcrumb');
             if (folderPath.length === 0) {
-                breadcrumb.innerHTML = '';
+                breadcrumb.innerHTML = '<span class="breadcrumb-item" data-index="-1">🏠 我的文件</span>';
+                document.querySelectorAll('.breadcrumb-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        const index = parseInt(item.dataset.index);
+                        if (index === -1) {
+                            goToRoot();
+                        } else {
+                            navigateToFolder(index);
+                        }
+                    });
+                });
                 return;
             }
             
-            let html = '';
+            let html = '<span class="breadcrumb-item" data-index="-1">🏠 我的文件</span> / ';
             folderPath.forEach((folder, index) => {
                 if (index > 0) html += ' / ';
                 html += `<span class="breadcrumb-item" data-index="${index}">${escapeHtml(folder.name)}</span>`;
@@ -653,9 +663,22 @@
             document.querySelectorAll('.breadcrumb-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const index = parseInt(item.dataset.index);
-                    navigateToFolder(index);
+                    if (index === -1) {
+                        goToRoot();
+                    } else {
+                        navigateToFolder(index);
+                    }
                 });
             });
+        }
+
+        // Go to root
+        function goToRoot() {
+            currentFolderId = null;
+            folderPath = [];
+            loadFiles();
+            updateBreadcrumb();
+            updateBackButton();
         }
 
         // Navigate to folder
