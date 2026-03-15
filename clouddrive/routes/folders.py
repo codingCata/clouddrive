@@ -1,7 +1,8 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request
 
 from ..auth import login_required, get_current_user_id
 from ..models import FolderModel
+from ..utils.responses import success, error
 
 folders_bp = Blueprint('folders', __name__, url_prefix='/api')
 
@@ -15,15 +16,15 @@ def create_folder():
     parent_id = data.get('parent_id')
     
     if not name:
-        return jsonify({'error': 'Folder name required'}), 400
+        return error('Folder name required', 'VALIDATION_ERROR', 400)
     
     if parent_id:
         folder = FolderModel.get_by_id(parent_id, user_id)
         if not folder:
-            return jsonify({'error': 'Parent folder not found'}), 404
+            return error('Parent folder not found', 'NOT_FOUND', 404)
     
     folder_id = FolderModel.create(user_id, name, parent_id)
-    return jsonify({'message': 'Folder created', 'folder_id': folder_id}), 201
+    return success({'folder_id': folder_id}, 'Folder created', 201)
 
 
 @folders_bp.route('/folders/<int:folder_id>', methods=['DELETE'])
@@ -33,10 +34,10 @@ def delete_folder(folder_id):
     
     folder = FolderModel.get_by_id(folder_id, user_id)
     if not folder:
-        return jsonify({'error': 'Folder not found'}), 404
+        return error('Folder not found', 'NOT_FOUND', 404)
     
-    success = FolderModel.delete(folder_id, user_id)
-    if not success:
-        return jsonify({'error': 'Folder not empty'}), 400
+    result = FolderModel.delete(folder_id, user_id)
+    if not result:
+        return error('Folder not empty', 'VALIDATION_ERROR', 400)
     
-    return jsonify({'message': 'Folder deleted'}), 200
+    return success(message='Folder deleted')

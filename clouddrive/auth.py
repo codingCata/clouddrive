@@ -1,6 +1,7 @@
 from functools import wraps
-from flask import session, jsonify, request
+from flask import session, request
 from .models import UserModel
+from .utils.responses import error
 
 
 def login_required(f):
@@ -8,7 +9,9 @@ def login_required(f):
     def decorated_function(*args, **kwargs):
         user_id = get_current_user_id()
         if not user_id:
-            return jsonify({'error': 'Unauthorized'}), 401
+            return error('Unauthorized', 'UNAUTHORIZED', 401)
+        if user_id == 'RATE_LIMITED':
+            return error('Too many requests. Please try again later.', 'RATE_LIMITED', 429)
         return f(*args, **kwargs)
     return decorated_function
 
@@ -29,8 +32,11 @@ def get_current_user_id():
     api_key = request.headers.get('X-API-Key')
     if api_key:
         user = UserModel.get_by_api_key(api_key)
-        if user:
-            return user['id']
+        if user is None:
+            return None
+        if user == 'RATE_LIMITED':
+            return 'RATE_LIMITED'
+        return user['id']
     
     return None
 
@@ -42,7 +48,7 @@ def get_current_username():
     api_key = request.headers.get('X-API-Key')
     if api_key:
         user = UserModel.get_by_api_key(api_key)
-        if user:
+        if user and user != 'RATE_LIMITED':
             return user['username']
     
     return None

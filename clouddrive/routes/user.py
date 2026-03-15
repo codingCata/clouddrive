@@ -1,7 +1,8 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint
 
 from ..auth import login_required, get_current_user_id, get_current_username
 from ..utils.storage import get_user_storage_used
+from ..utils.responses import success
 
 user_bp = Blueprint('user', __name__, url_prefix='/api')
 
@@ -13,8 +14,8 @@ def get_user():
     username = get_current_username()
     storage_used = get_user_storage_used(user_id)
     
-    return jsonify({
+    return success({
         'user_id': user_id,
         'username': username,
         'storage_used': storage_used
-    }), 200
+    })

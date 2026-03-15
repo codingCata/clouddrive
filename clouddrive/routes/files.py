@@ -1,8 +1,10 @@
 from flask import Blueprint, request, jsonify, send_file
 
 from ..auth import login_required, get_current_user_id
-from ..models import FileModel, FolderModel
-from ..utils.storage import get_user_storage_path
+from ..models import FileModel, FolderModel, FileFolderModel
+from ..utils.storage import get_user_storage_path, validate_file_path, safe_filename
+from ..utils.responses import success, error
+from .. import STORAGE_DIR
 
 files_bp = Blueprint('files', __name__, url_prefix='/api')
 
@@ -20,19 +22,19 @@ def list_files():
     page = max(1, page)
     page_size = min(max(1, page_size), 100)
     
-    files = FileModel.get_by_user(user_id, folder_id, page, page_size)
-    folders = FolderModel.get_by_user(user_id, folder_id, page, page_size)
-    
-    total_files = FileModel.count_by_user(user_id, folder_id)
-    total_folders = FolderModel.count_by_user(user_id, folder_id)
+    result = FileFolderModel.get_files_and_folders(user_id, folder_id, page, page_size)
+    files = result['files']
+    folders = result['folders']
+    total_files = result['total_files']
+    total_folders = result['total_folders']
     total_items = total_files + total_folders
     total_pages = (total_items + page_size - 1) // page_size if page_size > 0 else 1
     
-    return jsonify({
+    return success({
         'files': [
             {
                 'id': row['id'],
-                'filename': row['filename'],
+                'filename': row['name'],
                 'filesize': row['filesize'],
                 'folder_id': row['folder_id'],
                 'created_at': row['created_at']
@@ -55,7 +57,7 @@ def list_files():
             'has_next': page < total_pages,
             'has_prev': page > 1
         }
-    }), 200
+    })
 
 
 @files_bp.route('/search', methods=['GET'])
@@ -65,12 +67,12 @@ def search():
     query = request.args.get('q', '').strip()
     
     if not query or len(query) < 1:
-        return jsonify({'files': [], 'folders': []}), 200
+        return success({'files': [], 'folders': []})
     
     files = FileModel.search(user_id, query)
     folders = FolderModel.search(user_id, query)
     
-    return jsonify({
+    return success({
         'files': [
             {
                 'id': row['id'],
@@ -89,7 +91,7 @@ def search():
             }
             for row in folders
         ]
-    }), 200
+    })
 
 
 @files_bp.route('/upload', methods=['POST'])
@@ -102,11 +104,11 @@ def upload_file():
     folder_id = request.form.get('folder_id', type=int)
     
     if 'file' not in request.files:
-        return jsonify({'error': 'No file provided'}), 400
+        return error('No file provided', 'VALIDATION_ERROR', 400)
     
     file = request.files['file']
     if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
+        return error('No file selected', 'VALIDATION_ERROR', 400)
     
     file.seek(0, 2)
     file_size = file.tell()
@@ -122,11 +124,10 @@ def upload_file():
     
     FileModel.create(user_id, original_filename, filepath, file_size, folder_id)
     
-    return jsonify({
-        'message': 'File uploaded successfully',
+    return success({
         'filename': original_filename,
         'filesize': file_size
-    }), 201
+    }, 'File uploaded successfully', 201)
 
 
 @files_bp.route('/download/<filename>', methods=['GET'])
@@ -135,16 +136,20 @@ def download_file(filename):
     import os
     
     user_id = get_current_user_id()
+    safe_name = safe_filename(filename)
     
-    file_record = FileModel.get_by_filename(user_id, filename)
+    file_record = FileModel.get_by_filename(user_id, safe_name)
     
     if not file_record:
-        return jsonify({'error': 'File not found'}), 404
+        return error('File not found', 'NOT_FOUND', 404)
     
     filepath = file_record['filepath']
     
     if not os.path.exists(filepath):
-        return jsonify({'error': 'File not found on disk'}), 404
+        return error('File not found on disk', 'NOT_FOUND', 404)
+    
+    if not validate_file_path(filepath, user_id, STORAGE_DIR):
+        return error('Invalid file path', 'FORBIDDEN', 403)
     
     return send_file(
         filepath,
@@ -159,28 +164,32 @@ def preview_file(filename):
     import os
     
     user_id = get_current_user_id()
+    safe_name = safe_filename(filename)
     
-    file_record = FileModel.get_by_filename(user_id, filename)
+    file_record = FileModel.get_by_filename(user_id, safe_name)
     
     if not file_record:
-        return jsonify({'error': 'File not found'}), 404
+        return error('File not found', 'NOT_FOUND', 404)
     
     filepath = file_record['filepath']
     
     if not os.path.exists(filepath):
-        return jsonify({'error': 'File not found on disk'}), 404
+        return error('File not found on disk', 'NOT_FOUND', 404)
+    
+    if not validate_file_path(filepath, user_id, STORAGE_DIR):
+        return error('Invalid file path', 'FORBIDDEN', 403)
     
     from ..constants import PREVIEWABLE_EXTS, MAX_PREVIEW_SIZE, PREVIEWABLE_TYPES
     
-    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else ''
     
     if ext not in PREVIEWABLE_EXTS:
-        return jsonify({'error': 'Preview not supported for this file type'}), 400
+        return error('Preview not supported for this file type', 'VALIDATION_ERROR', 400)
     
     file_size = os.path.getsize(filepath)
     
     if file_size > MAX_PREVIEW_SIZE:
-        return jsonify({'error': 'File too large to preview', 'max_size': MAX_PREVIEW_SIZE}), 400
+        return error(f'File too large to preview (max {MAX_PREVIEW_SIZE // 1024 // 1024}MB)', 'VALIDATION_ERROR', 400, {'max_size': MAX_PREVIEW_SIZE})
     
     content_type = PREVIEWABLE_TYPES.get(ext, 'application/octet-stream')
     
@@ -201,12 +210,12 @@ def delete_file(filename):
     filepath = FileModel.delete(user_id, filename)
     
     if not filepath:
-        return jsonify({'error': 'File not found'}), 404
+        return error('File not found', 'NOT_FOUND', 404)
     
     if os.path.exists(filepath):
         os.remove(filepath)
     
-    return jsonify({'message': 'File deleted successfully'}), 200
+    return success(message='File deleted successfully')
 
 
 @files_bp.route('/batch-delete', methods=['POST'])
@@ -239,12 +248,11 @@ def batch_delete():
         else:
             failed.append({'type': 'folder', 'id': folder_id, 'error': 'Not found or not empty'})
     
-    return jsonify({
-        'message': f'{len(deleted_files)} files and {len(deleted_folders)} folders deleted',
+    return success({
         'deleted_files': deleted_files,
         'deleted_folders': deleted_folders,
         'failed': failed
-    }), 200
+    }, f'{len(deleted_files)} files and {len(deleted_folders)} folders deleted')
 
 
 @files_bp.route('/batch-download', methods=['POST'])
@@ -252,7 +260,7 @@ def batch_delete():
 def batch_download():
     import os
     import zipfile
-    import io
+    import tempfile
     
     user_id = get_current_user_id()
     data = request.get_json() or {}
@@ -260,22 +268,38 @@ def batch_download():
     files = data.get('files', [])
     
     if not files:
-        return jsonify({'error': 'No files selected'}), 400
+        return error('No files selected', 'VALIDATION_ERROR', 400)
     
-    memory_file = io.BytesIO()
+    if len(files) > 50:
+        return error('Maximum 50 files allowed per download', 'VALIDATION_ERROR', 400)
     
-    with zipfile.ZipFile(memory_file, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for filename in files:
-            file_record = FileModel.get_by_filename(user_id, filename)
-            if file_record and os.path.exists(file_record['filepath']):
-                with open(file_record['filepath'], 'rb') as f:
-                    zf.writestr(filename, f.read())
+    MAX_BATCH_SIZE = 500 * 1024 * 1024
+    total_size = 0
+    valid_files = []
     
-    memory_file.seek(0)
+    for filename in files:
+        file_record = FileModel.get_by_filename(user_id, filename)
+        if file_record and os.path.exists(file_record['filepath']):
+            size = os.path.getsize(file_record['filepath'])
+            total_size += size
+            valid_files.append((file_record, filename))
     
-    return send_file(
-        memory_file,
-        mimetype='application/zip',
-        as_attachment=True,
-        download_name='files.zip'
-    )
+    if total_size > MAX_BATCH_SIZE:
+        return error(f'Total size exceeds {MAX_BATCH_SIZE // 1024 // 1024}MB limit', 'VALIDATION_ERROR', 400)
+    
+    temp_path = tempfile.NamedTemporaryFile(suffix='.zip', delete=False).name
+    
+    try:
+        with zipfile.ZipFile(temp_path, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for file_record, filename in valid_files:
+                zf.write(file_record['filepath'], filename)
+        
+        return send_file(
+            temp_path,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name='files.zip'
+        )
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)

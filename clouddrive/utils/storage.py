@@ -35,3 +35,18 @@ def get_preview_content_type(filename):
     ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
     from ..constants import PREVIEWABLE_TYPES
     return PREVIEWABLE_TYPES.get(ext, 'application/octet-stream')
+
+
+def validate_file_path(filepath: str, user_id: int, storage_dir: str) -> bool:
+    if not filepath or not user_id:
+        return False
+    abs_filepath = os.path.abspath(filepath)
+    abs_storage = os.path.abspath(storage_dir)
+    user_dir = os.path.join(abs_storage, str(user_id))
+    return abs_filepath.startswith(user_dir + os.sep)
+
+
+def safe_filename(filename: str) -> str:
+    filename = filename.replace('/', '').replace('\\', '')
+    filename = filename.replace('\x00', '')
+    return filename[:255]

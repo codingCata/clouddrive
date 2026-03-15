@@ -1,7 +1,8 @@
-from flask import Blueprint, jsonify
+from flask import Blueprint
 
 from ..auth import login_required, get_current_user_id
 from ..models import UserModel
+from ..utils.responses import success, error
 
 api_key_bp = Blueprint('api_key', __name__, url_prefix='/api')
 
@@ -11,7 +12,7 @@ api_key_bp = Blueprint('api_key', __name__, url_prefix='/api')
 def get_api_key_info():
     user_id = get_current_user_id()
     info = UserModel.get_api_key_info(user_id)
-    return jsonify(info), 200
+    return success(info)
 
 
 @api_key_bp.route('/api-key', methods=['POST'])
@@ -21,13 +22,12 @@ def create_api_key():
     info = UserModel.get_api_key_info(user_id)
     
     if info['has_key']:
-        return jsonify({'error': 'API key already exists. Delete it first.'}), 400
+        return error('API key already exists. Delete it first.', 'DUPLICATE', 400)
     
     api_key = UserModel.generate_api_key(user_id)
-    return jsonify({
-        'api_key': api_key,
-        'message': 'Save this API key now. You won\'t be able to see it again.'
-    }), 201
+    return success({
+        'api_key': api_key
+    }, 'Save this API key now. You won\'t be able to see it again.', 201)
 
 
 @api_key_bp.route('/api-key', methods=['DELETE'])
@@ -35,7 +35,7 @@ def create_api_key():
 def delete_api_key():
     user_id = get_current_user_id()
     UserModel.delete_api_key(user_id)
-    return jsonify({'message': 'API key deleted successfully'}), 200
+    return success(message='API key deleted successfully')
 
 
 @api_key_bp.route('/ai-docs', methods=['GET'])
