@@ -222,7 +222,8 @@ class FileModel:
         conn.close()
     
     @staticmethod
-    def get_by_user(user_id, folder_id=None):
+    def get_by_user(user_id, folder_id=None, page=1, page_size=10):
+        offset = (page - 1) * page_size
         conn = get_db()
         cursor = conn.cursor()
         if folder_id is None:
@@ -231,17 +232,35 @@ class FileModel:
                 FROM files 
                 WHERE user_id = ? AND folder_id IS NULL
                 ORDER BY created_at DESC
-            ''', (user_id,))
+                LIMIT ? OFFSET ?
+            ''', (user_id, page_size, offset))
         else:
             cursor.execute('''
                 SELECT id, filename, filesize, folder_id, created_at 
                 FROM files 
                 WHERE user_id = ? AND folder_id = ?
                 ORDER BY created_at DESC
-            ''', (user_id, folder_id))
+                LIMIT ? OFFSET ?
+            ''', (user_id, folder_id, page_size, offset))
         files = cursor.fetchall()
         conn.close()
         return files
+    
+    @staticmethod
+    def count_by_user(user_id, folder_id=None):
+        conn = get_db()
+        cursor = conn.cursor()
+        if folder_id is None:
+            cursor.execute('''
+                SELECT COUNT(*) FROM files WHERE user_id = ? AND folder_id IS NULL
+            ''', (user_id,))
+        else:
+            cursor.execute('''
+                SELECT COUNT(*) FROM files WHERE user_id = ? AND folder_id = ?
+            ''', (user_id, folder_id))
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count
     
     @staticmethod
     def get_by_filename(user_id, filename):
@@ -316,22 +335,41 @@ class FolderModel:
         return folder_id
     
     @staticmethod
-    def get_by_user(user_id, parent_id=None):
+    def get_by_user(user_id, parent_id=None, page=1, page_size=10):
+        offset = (page - 1) * page_size
         conn = get_db()
         cursor = conn.cursor()
         if parent_id is None:
             cursor.execute(
-                'SELECT id, name, parent_id, created_at FROM folders WHERE user_id = ? AND parent_id IS NULL ORDER BY name',
-                (user_id,)
+                'SELECT id, name, parent_id, created_at FROM folders WHERE user_id = ? AND parent_id IS NULL ORDER BY name LIMIT ? OFFSET ?',
+                (user_id, page_size, offset)
             )
         else:
             cursor.execute(
-                'SELECT id, name, parent_id, created_at FROM folders WHERE user_id = ? AND parent_id = ? ORDER BY name',
-                (user_id, parent_id)
+                'SELECT id, name, parent_id, created_at FROM folders WHERE user_id = ? AND parent_id = ? ORDER BY name LIMIT ? OFFSET ?',
+                (user_id, parent_id, page_size, offset)
             )
         folders = cursor.fetchall()
         conn.close()
         return folders
+    
+    @staticmethod
+    def count_by_user(user_id, parent_id=None):
+        conn = get_db()
+        cursor = conn.cursor()
+        if parent_id is None:
+            cursor.execute(
+                'SELECT COUNT(*) FROM folders WHERE user_id = ? AND parent_id IS NULL',
+                (user_id,)
+            )
+        else:
+            cursor.execute(
+                'SELECT COUNT(*) FROM folders WHERE user_id = ? AND parent_id = ?',
+                (user_id, parent_id)
+            )
+        count = cursor.fetchone()[0]
+        conn.close()
+        return count
     
     @staticmethod
     def get_by_id(folder_id, user_id):

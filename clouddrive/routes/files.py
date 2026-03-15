@@ -6,15 +6,27 @@ from ..utils.storage import get_user_storage_path
 
 files_bp = Blueprint('files', __name__, url_prefix='/api')
 
+DEFAULT_PAGE_SIZE = 10
+
 
 @files_bp.route('/files', methods=['GET'])
 @login_required
 def list_files():
     user_id = get_current_user_id()
     folder_id = request.args.get('folder_id', type=int)
+    page = request.args.get('page', 1, type=int)
+    page_size = request.args.get('page_size', DEFAULT_PAGE_SIZE, type=int)
     
-    files = FileModel.get_by_user(user_id, folder_id)
-    folders = FolderModel.get_by_user(user_id, folder_id)
+    page = max(1, page)
+    page_size = min(max(1, page_size), 100)
+    
+    files = FileModel.get_by_user(user_id, folder_id, page, page_size)
+    folders = FolderModel.get_by_user(user_id, folder_id, page, page_size)
+    
+    total_files = FileModel.count_by_user(user_id, folder_id)
+    total_folders = FolderModel.count_by_user(user_id, folder_id)
+    total_items = total_files + total_folders
+    total_pages = (total_items + page_size - 1) // page_size if page_size > 0 else 1
     
     return jsonify({
         'files': [
@@ -34,7 +46,15 @@ def list_files():
                 'created_at': row['created_at']
             }
             for row in folders
-        ]
+        ],
+        'pagination': {
+            'page': page,
+            'page_size': page_size,
+            'total_items': total_items,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
+        }
     }), 200
 
 

@@ -1155,3 +1155,22 @@ a:hover {
 .search-results-info strong {
     color: var(--text);
 }
+
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 16px;
+    border-top: 1px solid var(--border);
+    margin-top: auto;
+}
+
+.pagination-bar.hidden {
+    display: none;
+}
+
+.pagination-info {
+    font-size: 14px;
+    color: var(--text-secondary);
+}

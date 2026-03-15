@@ -217,6 +217,17 @@
             <div class="file-list hidden" id="fileList">
                 <!-- Files will be rendered here -->
             </div>
+
+            <!-- Pagination -->
+            <div class="pagination-bar hidden" id="paginationBar">
+                <button class="btn btn-secondary btn-small" id="prevPageBtn" onclick="changePage(-1)">
+                    ◀ Prev
+                </button>
+                <span class="pagination-info" id="paginationInfo">Page 1</span>
+                <button class="btn btn-secondary btn-small" id="nextPageBtn" onclick="changePage(1)">
+                    Next ▶
+                </button>
+            </div>
         </div>
     </main>
 
@@ -525,9 +536,14 @@
         }
 
         // Load files
+        let currentPage = 1;
+        let totalPages = 1;
+        
         async function loadFiles() {
             try {
-                const url = currentFolderId ? `/api/files?folder_id=${currentFolderId}` : '/api/files';
+                const url = currentFolderId ? 
+                    `/api/files?folder_id=${currentFolderId}&page=${currentPage}` : 
+                    `/api/files?page=${currentPage}`;
                 const response = await fetch(url);
                 if (response.status === 401) {
                     window.location.href = '/login';
@@ -536,8 +552,12 @@
                 const data = await response.json();
                 files = data.files || [];
                 folders = data.folders || [];
+                const pagination = data.pagination || { page: 1, total_pages: 1, total_items: 0 };
+                currentPage = pagination.page;
+                totalPages = pagination.total_pages;
                 renderFiles();
                 updateBackButton();
+                updatePagination();
                 
                 // Show/hide batch toggle group based on content
                 const hasContent = files.length > 0 || folders.length > 0;
@@ -553,6 +573,30 @@
                 }
             } catch (err) {
                 console.error('Failed to load files:', err);
+            }
+        }
+
+        function updatePagination() {
+            const paginationBar = document.getElementById('paginationBar');
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+            const paginationInfo = document.getElementById('paginationInfo');
+            
+            if (totalPages > 1) {
+                paginationBar.classList.remove('hidden');
+                paginationInfo.textContent = `Page ${currentPage} / ${totalPages}`;
+                prevBtn.disabled = currentPage <= 1;
+                nextBtn.disabled = currentPage >= totalPages;
+            } else {
+                paginationBar.classList.add('hidden');
+            }
+        }
+
+        function changePage(delta) {
+            const newPage = currentPage + delta;
+            if (newPage >= 1 && newPage <= totalPages) {
+                currentPage = newPage;
+                loadFiles();
             }
         }
 
@@ -676,6 +720,7 @@
         function goToRoot() {
             currentFolderId = null;
             folderPath = [];
+            currentPage = 1;
             loadFiles();
             updateBreadcrumb();
             updateBackButton();
@@ -686,6 +731,7 @@
             if (index < folderPath.length - 1) {
                 folderPath = folderPath.slice(0, index + 1);
                 currentFolderId = folderPath[index].id;
+                currentPage = 1;
                 loadFiles();
                 updateBreadcrumb();
                 updateBackButton();
@@ -702,6 +748,7 @@
             }
             folderPath.push({ id: folderId, name: folderName });
             currentFolderId = folderId;
+            currentPage = 1;
             loadFiles();
             updateBreadcrumb();
             updateBackButton();
