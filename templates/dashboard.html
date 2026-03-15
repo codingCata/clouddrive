@@ -115,12 +115,26 @@
             </div>
             <div class="batch-toggle-group hidden" id="batchToggleGroup">
                 <button class="btn btn-secondary" id="selectAllBtn">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="20 6 9 17 4 12"/>
-                    </svg>
                     Select All
                 </button>
-                <button class="btn btn-secondary hidden" id="cancelSelectBtn">
+                <div class="batch-actions-inline hidden" id="batchActionsInline">
+                    <button class="btn btn-danger btn-small" id="batchDeleteBtnInline" onclick="batchDelete()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                        Delete
+                    </button>
+                    <button class="btn btn-secondary btn-small" id="batchDownloadBtnInline" onclick="batchDownload()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Download
+                    </button>
+                </div>
+                <button class="btn btn-secondary" id="cancelSelectBtn">
                     Cancel
                 </button>
             </div>
@@ -1367,18 +1381,42 @@
             const batchBar = document.getElementById('batchBar');
             const selectedCount = document.getElementById('selectedCount');
             const selectAll = document.getElementById('selectAll');
+            const batchActionsInline = document.getElementById('batchActionsInline');
+            const batchDeleteBtnInline = document.getElementById('batchDeleteBtnInline');
+            const batchDownloadBtnInline = document.getElementById('batchDownloadBtnInline');
             
-            if (checkboxes.length > 0) {
+            const count = checkboxes.length;
+            
+            if (count > 0) {
                 batchBar.classList.remove('hidden');
-                selectedCount.textContent = `${checkboxes.length} selected`;
+                selectedCount.textContent = `${count} selected`;
+                batchActionsInline.classList.remove('hidden');
+                batchDeleteBtnInline.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                    Delete (${count})
+                `;
+                batchDownloadBtnInline.innerHTML = `
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download (${count})
+                `;
             } else {
                 batchBar.classList.add('hidden');
+                batchActionsInline.classList.add('hidden');
             }
             
             const totalItems = document.querySelectorAll('.item-checkbox').length;
             const checkedItems = document.querySelectorAll('.item-checkbox:checked').length;
-            selectAll.checked = totalItems > 0 && checkedItems === totalItems;
-            selectAll.indeterminate = checkedItems > 0 && checkedItems < totalItems;
+            if (selectAll) {
+                selectAll.checked = totalItems > 0 && checkedItems === totalItems;
+                selectAll.indeterminate = checkedItems > 0 && checkedItems < totalItems;
+            }
         }
 
         function toggleFolderSelection(folderId, checked) {
@@ -1491,6 +1529,7 @@
             isBatchMode = true;
             document.getElementById('batchToggleGroup').classList.remove('hidden');
             document.getElementById('selectAllBtn').classList.add('hidden');
+            document.getElementById('batchActionsInline').classList.remove('hidden');
             document.getElementById('cancelSelectBtn').classList.remove('hidden');
             document.getElementById('fileList').classList.add('batch-mode');
             
@@ -1502,6 +1541,7 @@
         function exitBatchMode() {
             isBatchMode = false;
             document.getElementById('selectAllBtn').classList.remove('hidden');
+            document.getElementById('batchActionsInline').classList.add('hidden');
             document.getElementById('cancelSelectBtn').classList.add('hidden');
             document.getElementById('fileList').classList.remove('batch-mode');
             

@@ -820,10 +820,20 @@ a:hover {
 
 .batch-toggle-group {
     display: flex;
+    align-items: center;
     gap: 8px;
 }
 
 .batch-toggle-group.hidden {
+    display: none;
+}
+
+.batch-actions-inline {
+    display: flex;
+    gap: 8px;
+}
+
+.batch-actions-inline.hidden {
     display: none;
 }
 
