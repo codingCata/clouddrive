@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  clouddrive:
+    build: .
+    container_name: clouddrive
+    ports:
+      - "5051:5051"
+    environment:
+      - SECRET_KEY=${SECRET_KEY:-$(openssl rand -hex 32)}
+      - STORAGE_DIR=/data/storage
+      - DB_PATH=/data/clouddrive.db
+    volumes:
+      - clouddrive_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5051/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  clouddrive_data:
