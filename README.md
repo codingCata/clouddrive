@@ -1,5 +1,7 @@
 # CloudDrive
 
+[中文版](./README_zh.md) | English
+
 A lightweight personal cloud storage system.
 
 ## Pain Points & Solutions
@@ -76,17 +78,31 @@ services:
 
 ```
 clouddrive/
-├── app.py              # Main application
-├── config.py           # Configuration
-├── models.py           # Database models
-├── auth.py             # Authentication
-├── routes.py           # API routes
-├── Dockerfile          # Docker image
-├── docker-compose.yml   # Docker compose
-├── requirements.txt    # Python dependencies
-├── templates/         # HTML templates
-├── static/            # CSS/JS
-└── storage/          # File storage (created at runtime)
+├── app.py                    # Main application entry
+├── clouddrive/              # Main package
+│   ├── __init__.py         # Flask app factory
+│   ├── auth.py              # Authentication
+│   ├── constants.py         # Constants
+│   ├── models.py            # Database models
+│   ├── routes/              # API blueprints
+│   │   ├── __init__.py
+│   │   ├── auth.py
+│   │   ├── files.py
+│   │   ├── folders.py
+│   │   ├── user.py
+│   │   └── api_key.py
+│   └── utils/
+│       └── storage.py       # Storage utilities
+├── config.py                 # Legacy config (compatibility)
+├── models.py                # Legacy models (compatibility)
+├── auth.py                  # Legacy auth (compatibility)
+├── routes.py                # Legacy routes (compatibility)
+├── Dockerfile               # Docker image
+├── docker-compose.yml       # Docker compose
+├── requirements.txt         # Python dependencies
+├── templates/              # HTML templates
+├── static/                 # CSS/JS
+└── storage/                # File storage (created at runtime)
 ```
 
 ## API Endpoints
@@ -97,14 +113,20 @@ clouddrive/
 | POST | `/api/login` | User login |
 | POST | `/api/logout` | User logout |
 | GET | `/api/user` | Get user info |
-| GET | `/api/files` | List files |
+| GET | `/api/files` | List files (supports pagination) |
+| GET | `/api/search` | Search files |
 | POST | `/api/upload` | Upload file |
 | GET | `/api/download/<filename>` | Download file |
+| GET | `/api/preview/<filename>` | Preview file |
 | DELETE | `/api/delete/<filename>` | Delete file |
 | POST | `/api/folders` | Create folder |
 | DELETE | `/api/folders/<id>` | Delete folder |
+| POST | `/api/batch-delete` | Batch delete files/folders |
+| POST | `/api/batch-download` | Batch download files (ZIP) |
 | POST | `/api/change-password` | Change password |
 | POST | `/api/api-key` | Generate API key |
+| GET | `/api/api-key` | Get API key info |
+| DELETE | `/api/api-key` | Delete API key |
 | GET | `/api/ai-docs` | AI API documentation |
 
 ## AI Integration
@@ -140,4 +162,3 @@ curl http://localhost:5051/api/ai-docs
 - Frontend: Vanilla HTML/CSS/JS
 - Authentication: Session + bcrypt
 - Deployment: Docker
-# Test
